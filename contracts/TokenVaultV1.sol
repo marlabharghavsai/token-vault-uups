@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.23;
 
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract TokenVaultV1 is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
-
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
-    IERC20Upgradeable internal token;
+    IERC20 internal token;
     uint256 internal depositFee; // basis points
     uint256 internal _totalDeposits;
 
@@ -27,18 +26,23 @@ contract TokenVaultV1 is Initializable, UUPSUpgradeable, AccessControlUpgradeabl
         uint256 _depositFee
     ) external initializer {
         require(_token != address(0), "invalid token");
+        require(_admin != address(0), "invalid admin");
 
         __AccessControl_init();
         __UUPSUpgradeable_init();
 
-        token = IERC20Upgradeable(_token);
+        token = IERC20(_token);
         depositFee = _depositFee;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(UPGRADER_ROLE, _admin);
     }
 
-    function deposit(uint256 amount) external {
+    /* ========== CORE LOGIC ========== */
+
+    function deposit(uint256 amount) public virtual {
+        require(amount > 0, "zero amount");
+
         uint256 fee = (amount * depositFee) / 10000;
         uint256 credited = amount - fee;
 
@@ -48,14 +52,16 @@ contract TokenVaultV1 is Initializable, UUPSUpgradeable, AccessControlUpgradeabl
         _totalDeposits += credited;
     }
 
-    function withdraw(uint256 amount) external {
-        require(balances[msg.sender] >= amount, "insufficient");
+    function withdraw(uint256 amount) public virtual {
+        require(balances[msg.sender] >= amount, "insufficient balance");
 
         balances[msg.sender] -= amount;
         _totalDeposits -= amount;
 
         token.transfer(msg.sender, amount);
     }
+
+    /* ========== VIEW FUNCTIONS ========== */
 
     function balanceOf(address user) external view returns (uint256) {
         return balances[user];
@@ -73,11 +79,15 @@ contract TokenVaultV1 is Initializable, UUPSUpgradeable, AccessControlUpgradeabl
         return "V1";
     }
 
-    function _authorizeUpgrade(address)
+    /* ========== UUPS AUTHORIZATION ========== */
+
+    function _authorizeUpgrade(address newImplementation)
         internal
         override
         onlyRole(UPGRADER_ROLE)
     {}
+
+    /* ========== STORAGE GAP ========== */
 
     uint256[50] private __gap;
 }
