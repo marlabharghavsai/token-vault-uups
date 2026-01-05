@@ -81,7 +81,7 @@ token-vault-uups
 ```
 Role	                    Responsibility
 DEFAULT_ADMIN_ROLE	  Manage roles and critical configuration
-UPGRADER_ROLE	        Authorize contract upgrades
+UPGRADER_ROLE	      Authorize contract upgrades
 PAUSER_ROLE	          Pause/unpause deposits (V2+)
 ```
 ## Storage Layout Strategy
